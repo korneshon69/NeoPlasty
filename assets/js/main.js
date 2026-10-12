@@ -668,6 +668,13 @@ const PRODUCTS_DATABASE = {
     title: "Zbiorniki retencyjne NEO",
     subtitle: "Samonośny plastikowy zbiornik na wodę deszczową",
     lead: "Profesjonalne zbiorniki na wodę deszczową i ścieki, dostosowane do indywidualnych potrzeb.",
+    description: `
+      <p class="section-kicker">O PRODUKCIE</p>
+      <h2>Praktyczne zatrzymywanie wody deszczowej</h2>
+      <p>Zbiornik retencyjny NEO służy do gromadzenia wody deszczowej z powierzchni dachowych i jej dalszego wykorzystania tam, gdzie nie jest wymagana woda pitna. To rozwiązanie dla klientów, którzy chcą lepiej gospodarować wodą na działce.</p>
+      <p>Zgromadzoną wodę można wykorzystać przede wszystkim do podlewania ogrodu, zasilania systemu nawadniania lub jako wodę użytkową po odpowiednim podłączeniu technicznym. Duża pojemność pomaga stworzyć zapas w okresach mniejszych opadów.</p>
+      <p>Samonośna konstrukcja i plastikowy materiał są projektowane z myślą o trwałości, łatwej obsłudze i długiej eksploatacji. Konkretne warunki montażu należy zawsze potwierdzić dla danego miejsca posadowienia.</p>
+    `,
     props: ["Pojemność 1 - 20 m³", "Konstrukcja samonośna", "100% szczelny materiał", "Dostawa na terenie Polski"],
     badge: "HIT SEZONU",
     images: [
@@ -689,6 +696,11 @@ const PRODUCTS_DATABASE = {
     subtitle: "Uniwersalne zbiorniki plastikowe",
     lead: "Uniwersalne zbiorniki plastikowe o różnym przeznaczeniu przemysłowym i domowym.",
     props: ["Wysoka odporność", "Indywidualne wykonanie", "Atesty i normy", "Dostawa w Polsce"],
+    description: `
+      <p class="section-kicker">O PRODUKCIE</p>
+      <h2>Uniwersalne zbiorniki plastikowe</h2>
+      <p>Uniwersalne zbiorniki plastikowe o różnym przeznaczeniu przemysłowym i domowym, zapewniające bezpieczne magazynowanie wody oraz ścieków.</p>
+    `,
     images: [
       { src: "assets/images/product-8-2.jpg", alt: "Nádrže" },
       { src: "assets/images/product-8.png", alt: "Nádrže" },
@@ -704,6 +716,11 @@ const PRODUCTS_DATABASE = {
     subtitle: "Pokrywy i włazy z tworzywa sztucznego",
     lead: "Wytrzymałe pokrywy i włazy rewizywne o różnej klasie obciążenia.",
     props: ["Odporność na UV", "Antypoślizgowa powierzchnia", "Wkręty zabezpieczające", "Różne kolory"],
+    description: `
+      <p class="section-kicker">O PRODUKCIE</p>
+      <h2>Pokrywy studzienek ogrodowych</h2>
+      <p>Pokrywy studzienek „ogrodowych” są stosowane do montażu na studzienkach kablowych, systemach wodociągowych i kanalizacyjnych na chodnikach, w terenach zielonych. Zapewniają łatwy dostęp do mediów podczas układania sieci. Pokrywy studzienek są praktycznie niewidoczne zarówno na powierzchni trawnika, jak i chodnika. Pokrywy polimerowe rozwiązują problem kradzieży pokryw i pozwalają zaoszczędzić pieniądze.</p>
+    `,
     images: [
       { src: "assets/images/product-9.jpg", alt: "Poklopy" },
       { src: "assets/images/product-9-2.jpg", alt: "Poklopy" },
@@ -718,6 +735,23 @@ const PRODUCTS_DATABASE = {
     baseTitle: "Vsakovaci blok Compact",
     subtitle: "Kompaktowe bloki do rozsączania wód",
     lead: "Modułowe bloki do podziemnej retencji i powolnego rozsączania wody deszczowej w gruncie.",
+    description: `
+      <p class="section-kicker">O PRODUKCIE</p>
+      <h2>Vsakovacie bloky</h2>
+      <p>Vsakovacie bloky kombinujú požiadavky ekologického prístupu so šancou ušetriť finančné prostriedky.</p>
+      <p>Využitie vsakovacích modulov a vsakovacích šácht umožňuje:</p>
+      <ul>
+        <li>Šetrenie finančných prostriedkov pri výstavbe, pretože sa robí menej výkopov ako pri zaužívanom riešení</li>
+        <li>Trvalo vysoký vsakovací výkon</li>
+        <li>Jednoduchú montáž bez využitia ťažkej techniky</li>
+        <li>Využitie vo všetkých sférach, od rodinných domov až po továrne strechy a veľké spevnené plochy</li>
+        <li>Značná finančná úspora pri odpojení sa od kanalizačného systému</li>
+        <li>Nezahlcovanie kanalizačných systémov a čističiek</li>
+        <li>Znižovanie možnosti záplav</li>
+        <li>Udržiawanie prirodzeného kolobehu vody v prírode</li>
+        <li>Pri využití kontrolného bloku je možná pravidelná kontrola kamerou</li>
+      </ul>
+    `,
     props: ["Wysoka pojemność (97%)", "Łatwy montaż modułowy", "Duża wytrzymałość", "Geowłóknina w zestawie"],
     images: [
       { src: "assets/images/product-10.jpg", alt: "Vsakovaci blok Compact" },
@@ -732,6 +766,11 @@ const PRODUCTS_DATABASE = {
     title: "Separatory",
     subtitle: "Urządzenia do separacji substancji ropopochodnych i tłuszczów",
     lead: "Skuteczne oddzielanie substancji ropopochodnych i tłuszczów w systemach kanalizacyjnych.",
+    description: `
+      <p class="section-kicker">O PRODUKCIE</p>
+      <h2>Separatory substancji ropopochodnych</h2>
+      <p>Skuteczne oddzielanie substancji ropopochodnych i tłuszczów w systemach kanalizacyjnych.</p>
+    `,
     props: ["Przepływ 1.5 - 20 l/s", "Zintegrowany osadnik", "Zgodność z normą PN-EN 858", "Atest higieniczny"],
     images: [
       { src: "assets/images/product-1.png", alt: "Separator 1" },
@@ -749,6 +788,11 @@ const PRODUCTS_DATABASE = {
     title: "Klapy zwrotne",
     subtitle: "Zamknięcia przeciwzalewowe",
     lead: "Ochrona przed cofaniem się ścieków i wody deszczowej z instalacji zewnętrznych.",
+    description: `
+      <p class="section-kicker">O PRODUKCIE</p>
+      <h2>Klapy zwrotne</h2>
+      <p>Ochrona przed cofaniem się ścieków i wody deszczowej z instalacji zewnętrznych.</p>
+    `,
     props: ["Montaż na rurze", "Odporność na korozję", "Automatyczne działanie", "Łatwy przegląd"],
     images: [
       { src: "assets/images/product-2.png", alt: "Klapa zwrotna" }
@@ -762,6 +806,11 @@ const PRODUCTS_DATABASE = {
     title: "Drut spawalniczy",
     subtitle: "Spoiwo do spawania tworzyw sztucznych",
     lead: "Wysokiej jakości drut do profesjonalnego łączenia tworzyw sztucznych (PE, PP).",
+    description: `
+      <p class="section-kicker">O PRODUKCIE</p>
+      <h2>Drut spawalniczy</h2>
+      <p>Wysokiej jakości drut do profesjonalnego łączenia tworzyw sztucznych (PE, PP).</p>
+    `,
     props: ["Czysty polimer PP/PE", "Stabilność termiczna", "Wysoka wytrzymałość spoiny", "Różne profile"],
     images: [
       { src: "assets/images/product-3.png", alt: "Drut spawalniczy" },
@@ -778,6 +827,11 @@ const PRODUCTS_DATABASE = {
     title: "Studnie tworzywowe",
     subtitle: "Studzienki kanalizacyjne, wodomierzowe i drenażowe",
     lead: "Trwałe studnie wodomierzowe, kanalizacyjne i drenażowe wykonane z tworzyw.",
+    description: `
+      <p class="section-kicker">O PRODUKCIE</p>
+      <h2>Studnia wodomierzowa</h2>
+      <p>Studnie wodomierzowe służą do zabudowy aparatury pomiarowej. Wykonane są na bazie rur strukturalnych SPS o dowolnym kolorze i średnicy w zakresie od 600 mm do 3500mm. Produkowane przez nas studnie posiadają sztywność obwodową od 2 do 16 kN/m2 dobieraną w zależności od głębokości posadowienia oraz warunków gruntowych.</p>
+    `,
     props: ["100% szczelność", "Kompaktowa waga", "Możliwość docięcia", "Wysoka odporność"],
     images: [
       { src: "assets/images/product-4.jpg", alt: "Studnia" },
@@ -794,6 +848,11 @@ const PRODUCTS_DATABASE = {
     title: "Rury strukturalne spiralnie zwijane",
     subtitle: "Systemy rurociągów dużej średnicy",
     lead: "Wytrzymałe rury do budowy nowych sieci, zbiorników i renowacji przewodów.",
+    description: `
+      <p class="section-kicker">O PRODUKCIE</p>
+      <h2>Rury strukturalne i kanalizacja zewnętrzna</h2>
+      <p>Wytrzymałe rury do budowy nowych sieci, zbiorników i renowacji przewodów. W ofercie dostępne średnice od Ø 110 do Ø 200 mm oraz długości odcinków 500, 1000, 2000, 3000, 4000 i 6000 mm.</p>
+    `,
     props: ["Wysoka sztywność SN", "Gładka powierzchnia wewn.", "Odporność ścierna", "Łączenie przez spawanie"],
     badge: "HIT CENOWY",
     images: [
@@ -808,6 +867,11 @@ const PRODUCTS_DATABASE = {
     title: "Kształtki i połączenia",
     subtitle: "Elementy łączeniowe tworzywowe",
     lead: "Kolana, trójniki, redukcje i inne elementy dopasowane do systemów rurociągów.",
+    description: `
+      <p class="section-kicker">O PRODUKCIE</p>
+      <h2>Kształtki i połączenia</h2>
+      <p>Kolana, trójniki, redukcje i inne elementy dopasowane do systemów rurociągów.</p>
+    `,
     props: ["Wykonanie z PE/PP", "Zgrzewanie / Spawanie", "Gwarancja szczelności", "Dowolne kąty"],
     images: [
       { src: "assets/images/product-6.jpg", alt: "Kształtka" },
@@ -823,6 +887,11 @@ const PRODUCTS_DATABASE = {
     title: "Płyty z PE i PP",
     subtitle: "Płyty konstrukcyjne i tworzywowe",
     lead: "Płyty z polietylenu i polipropylenu o wszechstronnym zastosowaniu przemysłowym.",
+    description: `
+      <p class="section-kicker">O PRODUKCIE</p>
+      <h2>Płyty z PE i PP</h2>
+      <p>Płyty z polietylenu i polipropylenu o wszechstronnym zastosowaniu przemysłowym.</p>
+    `,
     props: ["Gładka lub radełkowana", "Odporność chemiczna", "Ochrona UV", "Łatwa obróbka"],
     images: [
       { src: "assets/images/product-7.jpg", alt: "Płyta PE/PP" },
@@ -962,9 +1031,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const titleElem = document.getElementById("productTitle");
       const subtitleElem = productSection.querySelector(".subtitle");
       const leadElem = productSection.querySelector(".lead");
+      const descElem = document.getElementById("productDescription");
 
       if (subtitleElem) subtitleElem.textContent = data.subtitle;
       if (leadElem) leadElem.textContent = data.lead;
+      if (descElem) descElem.innerHTML = data.description || "";
 
       const propsGrid = productSection.querySelector(".property-grid");
       if (propsGrid && data.props) {
