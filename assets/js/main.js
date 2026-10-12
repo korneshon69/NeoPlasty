@@ -732,7 +732,7 @@ const PRODUCTS_DATABASE = {
     ]
   },
   "vsakovaci-blok-compact": {
-    baseTitle: "Vsakovaci blok Compact",
+    baseTitle: "Vsakovaci bloky",
     subtitle: "Kompaktowe bloki do rozsączania wód",
     lead: "Modułowe bloki do podziemnej retencji i powolnego rozsączania wody deszczowej w gruncie.",
     description: `
@@ -845,12 +845,12 @@ const PRODUCTS_DATABASE = {
     ]
   },
   "rury-strukturalne": {
-    title: "Rury strukturalne spiralnie zwijane",
+    title: "Rury PVC — kanalizacja zewnętrzna",
     subtitle: "Systemy rurociągów dużej średnicy",
     lead: "Wytrzymałe rury do budowy nowych sieci, zbiorników i renowacji przewodów.",
     description: `
       <p class="section-kicker">O PRODUKCIE</p>
-      <h2>Rury strukturalne i kanalizacja zewnętrzna</h2>
+      <h2>Rury PVC — kanalizacja zewnętrzna</h2>
       <p>Wytrzymałe rury do budowy nowych sieci, zbiorników i renowacji przewodów. W ofercie dostępne średnice od Ø 110 do Ø 200 mm oraz długości odcinków 500, 1000, 2000, 3000, 4000 i 6000 mm.</p>
     `,
     props: ["Wysoka sztywność SN", "Gładka powierzchnia wewn.", "Odporność ścierna", "Łączenie przez spawanie"],
