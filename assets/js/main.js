@@ -798,8 +798,6 @@ const PRODUCTS_DATABASE = {
     badge: "HIT CENOWY",
     images: [
       { src: "assets/images/product-5.jpg", alt: "Rura strukturalna" },
-      { src: "assets/images/product-5-2.jpg", alt: "Rura strukturalna" },
-      { src: "assets/images/product-5-3.jpg", alt: "Rura strukturalna" }
     ],
     options: [
       { name: "Średnica wewnętrzna (ID)", values: ["300 mm", "500 mm", "800 mm", "1000 mm", "1200 mm"] },
