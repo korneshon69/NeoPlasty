@@ -1,1121 +1,463 @@
-"use strict";
-
-const PRODUCT = {
-  currency: "EUR",
-  defaultCapacity: 20,
-  capacities: [5, 10, 15, 20, 25],
-  dimensionsByCapacity: {
-    5: { d2: 260, s2: 160, v1: 150, weight: "do potwierdzenia" },
-    6: { d2: 310, s2: 160, v1: 150, weight: "do potwierdzenia" },
-    8: { d2: 300, s2: 210, v1: 150, weight: "do potwierdzenia" },
-    9: { d2: 340, s2: 210, v1: 150, weight: "do potwierdzenia" },
-    10: { d2: 285, s2: 210, v1: 200, weight: "do potwierdzenia" },
-    12: { d2: 340, s2: 210, v1: 200, weight: "do potwierdzenia" },
-    15: { d2: 410, s2: 210, v1: 200, weight: "do potwierdzenia" },
-    20: { d2: 550, s2: 210, v1: 200, weight: "270 kg" },
-  },
-  images: [
-    {
-      src: "assets/images/tank-gallery-1.png",
-      alt: "Perspektywiczny widok prostokątnego zbiornika retencyjnego",
-    },
-    {
-      src: "assets/images/tank-gallery-2.png",
-      alt: "Przedni widok prostokątnego zbiornika retencyjnego z włazem rewizyjnym",
-    },
-    {
-      src: "assets/images/tank-gallery-3.png",
-      alt: "Widok z góry na zbiornik i właz rewizyjny",
-    },
-    {
-      src: "assets/images/tank-gallery-4.png",
-      alt: "Detal włazu rewizyjnego i pokrywy na górze zbiornika",
-    },
-    {
-      src: "assets/images/tank-gallery-5.png",
-      alt: "Przekrój zbiornika z konstrukcją wewnętrzną i wzmocnieniami",
-    },
-  ],
-  options: {
-    revisionHeight: [
-      { label: "30 cm", surcharge: 0 },
-      { label: "40 cm", surcharge: 15 },
-      { label: "50 cm", surcharge: 30 },
-      { label: "60 cm", surcharge: 45 },
-      { label: "70 cm", surcharge: 60 },
-      { label: "80 cm", surcharge: 75 },
-      { label: "90 cm", surcharge: 90 },
-      { label: "100 cm", surcharge: 105 },
-      { label: "110 cm", surcharge: 120 },
-      { label: "120 cm", surcharge: 135 },
-      { label: "130 cm", surcharge: 150 },
-    ],
-    lid: [
-      { label: "Pokrywa nieobciążeniowa", surcharge: 0 },
-      { label: "Pokrywa obciążeniowa do 200 kg CZARNA", surcharge: 100 },
-      { label: "Pokrywa obciążeniowa do 200 kg ZIELONA", surcharge: 126 },
-      { label: "Pokrywa obciążeniowa do 200 kg PIASKOWO-SZARA", surcharge: 126 },
-      { label: "Pokrywa zamykana", surcharge: 110 },
-    ],
-    filterBasket: [
-      { label: "Bez kosza filtracyjnego", surcharge: 0 },
-      { label: "Z koszem filtracyjnym", surcharge: 130 },
-    ],
-    inletDiameter: [
-      { label: "DN 110", surcharge: 0 },
-      { label: "DN 125", surcharge: 55 },
-      { label: "DN 160", surcharge: 95 },
-    ],
-    overflow: [
-      { label: "Bez przelewu", surcharge: 0 },
-      { label: "Przelew DN 110", surcharge: 85 },
-      { label: "Przelew DN 160", surcharge: 135 },
-    ],
-    pumpPreparation: [
-      { label: "Bez przygotowania", surcharge: 0 },
-      { label: "Przepust kablowy", surcharge: 45 },
-      { label: "Przygotowanie pod pompę zanurzeniową", surcharge: 210 },
-    ],
-    anchoring: [
-      { label: "Bez zestawu kotwiącego", surcharge: 0 },
-      { label: "Zestaw kotwiący Standard", surcharge: 160 },
-      { label: "Zestaw kotwiący Plus", surcharge: 260 },
-    ],
-    shaftExtension: [
-      { label: "Bez przedłużenia", surcharge: 0 },
-      { label: "Przedłużenie +20 cm", surcharge: 75 },
-      { label: "Przedłużenie +40 cm", surcharge: 130 },
-    ],
-  },
-};
-
-const moneyFormatter = new Intl.NumberFormat("sk-SK", {
-  style: "currency",
-  currency: PRODUCT.currency,
-  maximumFractionDigits: 2,
-});
-
-let quantity = 1;
-let galleryIndex = 0;
-let galleryLayer = 0;
-let galleryAnimating = false;
-let selectedCapacity = PRODUCT.defaultCapacity;
-let lastDefaultMessage = "";
-let customSelectGlobalListenersBound = false;
-
-const getElement = (selector) => document.querySelector(selector);
-const getElements = (selector) => Array.from(document.querySelectorAll(selector));
-
-function getSelectedConfiguration() {
-  return getElements("[data-config]").map((select) => {
-    const option = select.selectedOptions[0];
-    const label = option?.dataset.label || option?.textContent || "";
-    return {
-      name: select.name,
-      label,
-      surcharge: Number(select.value || 0),
-    };
-  });
-}
-
-function populateConfigurator() {
-  const capacitySelect = getElement("[data-capacity-select]");
-  if (capacitySelect) {
-    PRODUCT.capacities.forEach((capacity) => {
-      const item = document.createElement("option");
-      item.value = String(capacity);
-      item.textContent = `${capacity} m³ / ${capacity * 1000} l`;
-      item.selected = capacity === PRODUCT.defaultCapacity;
-      capacitySelect.append(item);
-    });
-  }
-
-  Object.entries(PRODUCT.options).forEach(([key, options]) => {
-    const select = getElement(`[data-config="${key}"]`);
-    if (!select) return;
-
-    options.forEach((option) => {
-      const item = document.createElement("option");
-      item.value = String(option.surcharge);
-      item.dataset.label = option.label;
-      item.textContent = option.label;
-      select.append(item);
-    });
-  });
-}
-
-function getCapacityLabel(capacity = selectedCapacity) {
-  return `${capacity} m³ / ${(capacity * 1000).toLocaleString("pl-PL")} l`;
-}
-
-function getInquiryMessage(capacity = selectedCapacity) {
-  return `Interesuje mnie zbiornik retencyjny ${capacity * 1000} l. Proszę o przygotowanie oferty cenowej wraz z dostawą.`;
-}
-
-function getDimensionText(capacity = selectedCapacity) {
-  const dimensions = PRODUCT.dimensionsByCapacity[capacity];
-  if (!dimensions) {
-    return {
-      length: "Długość zewnętrzna D2: do potwierdzenia",
-      width: "Szerokość zewnętrzna S2: do potwierdzenia",
-      height: "Wysokość płaszcza V1: do potwierdzenia",
-      dimensions: "dokładne wymiary zostaną potwierdzone dla wybranego modelu",
-      weight: "do potwierdzenia",
-    };
-  }
-
-  return {
-    length: `Długość zewnętrzna D2: ${dimensions.d2} cm`,
-    width: `Szerokość zewnętrzna S2: ${dimensions.s2} cm`,
-    height: `Wysokość płaszcza V1: ${dimensions.v1} cm`,
-    dimensions: `długość zewnętrzna ${dimensions.d2} cm, szerokość zewnętrzna ${dimensions.s2} cm, wysokość płaszcza ${dimensions.v1} cm`,
-    weight: dimensions.weight,
-  };
-}
-
-function calculateSelectedSurcharge() {
-  return getSelectedConfiguration().reduce((total, option) => total + option.surcharge, 0) * quantity;
-}
-
-function setTextContent(selector, text) {
-  const el = getElement(selector);
-  if (el) el.textContent = text;
-}
-
-function updatePrice() {
-  const capacitySelect = getElement("[data-capacity-select]");
-  selectedCapacity = Number(capacitySelect?.value || PRODUCT.defaultCapacity);
-  const capacityLiters = selectedCapacity * 1000;
-  const capacityText = `${capacityLiters.toLocaleString("pl-PL")} l`;
-  const title = `Zbiornik retencyjny ${capacityText}`;
-  const dimensions = getDimensionText();
-
-  setTextContent("#productTitle", title);
-  setTextContent("#heroCapacity", capacityText);
-  setTextContent(
-    "#specsIntro",
-    `Podstawowe dane techniczne dla prostokątnego samonośnego zbiornika retencyjnego o pojemności ${selectedCapacity} m3.`,
-  );
-  setTextContent("#specCapacity", capacityText);
-  setTextContent("#specWeight", dimensions.weight);
-  setTextContent("#specDimensions", dimensions.dimensions);
-  setTextContent("#miniCapacity", getCapacityLabel());
-  setTextContent("#miniLength", dimensions.length);
-  setTextContent("#miniWidth", dimensions.width);
-  setTextContent("#miniHeight", dimensions.height);
-
-  setTextContent("#grossPrice", "do uzgodnienia");
-  setTextContent("#netPrice", "Ofertę cenową przygotujemy po wysłaniu zapytania.");
-  setTextContent("#quantityOutput", String(quantity));
-
-  const formQuantity = getElement('#inquiryForm input[name="quantity"]');
-  if (formQuantity) formQuantity.value = String(quantity);
-
-  const configurationInput = getElement("#configurationInput");
-  if (configurationInput) {
-    const options = getSelectedConfiguration()
-      .map((option) => `${option.name}: ${option.label}`)
-      .join("; ");
-    configurationInput.value = `Pojemność: ${getCapacityLabel()}; Liczba sztuk: ${quantity}; ${options}`;
-  }
-
-  const message = getElement("#inquiryMessage");
-  if (message) {
-    const nextDefaultMessage = getInquiryMessage();
-    if (!message.value.trim() || message.value === lastDefaultMessage) {
-      message.value = nextDefaultMessage;
-    }
-    lastDefaultMessage = nextDefaultMessage;
-  }
-}
-
-function getGalleryLayers() {
-  return getElements("[data-gallery-layer]");
-}
-
-function syncGalleryThumbs() {
-  getElements("[data-gallery-index]").forEach((button) => {
-    button.classList.toggle("is-active", Number(button.dataset.galleryIndex) === galleryIndex);
-  });
-}
-
-function setGalleryImage(index) {
-  const nextIndex = (index + PRODUCT.images.length) % PRODUCT.images.length;
-  if (nextIndex === galleryIndex) return;
-
-  const image = PRODUCT.images[nextIndex];
-  const layers = getGalleryLayers();
-  if (layers.length < 2) return;
-
-  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-  const currentLayer = layers.find(l => l.classList.contains("is-visible")) || layers[0];
-  const nextLayer = layers.find(l => l !== currentLayer) || layers[1];
-
-  galleryIndex = nextIndex;
-  syncGalleryThumbs();
-
-  if (reducedMotion) {
-    currentLayer.src = image.src;
-    currentLayer.alt = image.alt;
-    currentLayer.classList.add("is-visible");
-    nextLayer.classList.remove("is-visible");
-    return;
-  }
-
-  nextLayer.src = image.src;
-  nextLayer.alt = image.alt;
-
-  nextLayer.classList.add("is-visible");
-  currentLayer.classList.remove("is-visible");
-}
-
-function initGallery() {
-  getElement("[data-gallery-prev]")?.addEventListener("click", () => setGalleryImage(galleryIndex - 1));
-  getElement("[data-gallery-next]")?.addEventListener("click", () => setGalleryImage(galleryIndex + 1));
-
-  getElements("[data-gallery-index]").forEach((button) => {
-    button.addEventListener("click", () => setGalleryImage(Number(button.dataset.galleryIndex)));
-    button.addEventListener("keydown", (event) => {
-      if (event.key === "ArrowLeft") {
-        event.preventDefault();
-        setGalleryImage(galleryIndex - 1);
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Zbiorniki retencyjne NEO 20 000 l | NeoPlasty</title>
+    <meta name="description" content="Samonośny plastikowy zbiornik retencyjny NEO 20 000 l na wodę deszczową z indywidualną wyceną i dostawą.">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://example.pl/zbiornik-retencyjny-20000l">
+    <meta property="og:type" content="product">
+    <meta property="og:title" content="Zbiornik retencyjny NEO 20 000 l">
+    <meta property="og:description" content="Samonośny plastikowy zbiornik na wodę deszczową NeoPlasty.">
+    <meta property="og:image" content="assets/images/tank-gallery-1.png">
+    <meta property="og:url" content="https://example.pl/zbiornik-retencyjny-20000l">
+    <link rel="icon" href="assets/images/favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/styles.css">
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        "name": "Zbiornik retencyjny NEO 20 000 l",
+        "description": "Samonośny plastikowy zbiornik na wodę deszczową",
+        "image": ["assets/images/tank-gallery-1.png"],
+        "brand": {"@type": "Brand", "name": "NeoPlasty"}
       }
-      if (event.key === "ArrowRight") {
-        event.preventDefault();
-        setGalleryImage(galleryIndex + 1);
-      }
-    });
-  });
-}
-
-function initMenu() {
-  const toggle = getElement("[data-menu-toggle]");
-  const nav = getElement("[data-nav]");
-  const contact = getElement(".header-contact");
-
-  toggle?.addEventListener("click", () => {
-    const isOpen = toggle.getAttribute("aria-expanded") === "true";
-    toggle.setAttribute("aria-expanded", String(!isOpen));
-    nav?.classList.toggle("is-open", !isOpen);
-    contact?.classList.toggle("is-open", !isOpen);
-  });
-
-  nav?.addEventListener("click", (event) => {
-    if (!(event.target instanceof HTMLAnchorElement)) return;
-    toggle?.setAttribute("aria-expanded", "false");
-    nav.classList.remove("is-open");
-    contact?.classList.remove("is-open");
-  });
-}
-
-function initQuantity() {
-  getElement("[data-qty-minus]")?.addEventListener("click", () => {
-    quantity = Math.max(1, quantity - 1);
-    updatePrice();
-  });
-
-  getElement("[data-qty-plus]")?.addEventListener("click", () => {
-    quantity += 1;
-    updatePrice();
-  });
-
-  getElements("[data-config]").forEach((select) => select.addEventListener("change", updatePrice));
-  getElement("[data-capacity-select]")?.addEventListener("change", updatePrice);
-}
-
-function initAccordion() {
-  getElements(".accordion-item button").forEach((button) => {
-    const item = button.closest(".accordion-item");
-    const panel = button.nextElementSibling;
-    if (!item || !panel) return;
-
-    button.setAttribute("aria-expanded", "false");
-    panel.setAttribute("aria-hidden", "true");
-
-    button.addEventListener("click", () => {
-      const expanded = button.getAttribute("aria-expanded") === "true";
-
-      if (expanded) {
-        button.setAttribute("aria-expanded", "false");
-        panel.setAttribute("aria-hidden", "true");
-        item.classList.remove("is-expanded");
-        return;
-      }
-
-      getElements(".accordion-item.is-expanded").forEach((openItem) => {
-        if (openItem === item) return;
-        const openButton = openItem.querySelector("button");
-        const openPanel = openItem.querySelector(".accordion-panel");
-        openButton?.setAttribute("aria-expanded", "false");
-        openPanel?.setAttribute("aria-hidden", "true");
-        openItem.classList.remove("is-expanded");
-      });
-
-      button.setAttribute("aria-expanded", "true");
-      panel.setAttribute("aria-hidden", "false");
-      item.classList.add("is-expanded");
-    });
-  });
-}
-
-function closeAllCustomSelects(except) {
-  getElements(".custom-select.is-open").forEach((wrap) => {
-    if (wrap === except) return;
-    wrap.classList.remove("is-open");
-    wrap.querySelector(".custom-select-trigger")?.setAttribute("aria-expanded", "false");
-    wrap.querySelector(".custom-select-list")?.setAttribute("hidden", "");
-  });
-}
-
-function initCustomSelects() {
-  const selects = getElements(".configurator select");
-  if (!selects.length) return;
-
-  selects.forEach((select) => {
-    if (select.closest(".custom-select")) return;
-
-    const wrap = document.createElement("div");
-    wrap.className = "custom-select";
-    select.parentNode.insertBefore(wrap, select);
-    wrap.appendChild(select);
-    select.classList.add("custom-select-native");
-
-    const trigger = document.createElement("button");
-    trigger.type = "button";
-    trigger.className = "custom-select-trigger";
-    trigger.setAttribute("aria-haspopup", "listbox");
-    trigger.setAttribute("aria-expanded", "false");
-
-    const list = document.createElement("ul");
-    list.className = "custom-select-list";
-    list.setAttribute("role", "listbox");
-    list.hidden = true;
-
-    wrap.append(trigger, list);
-
-    const syncTrigger = () => {
-      const option = select.selectedOptions[0];
-      trigger.textContent = option?.textContent || "";
-      list.querySelectorAll(".custom-select-option").forEach((item) => {
-        const isSelected = item.dataset.value === select.value;
-        item.classList.toggle("is-selected", isSelected);
-        item.setAttribute("aria-selected", String(isSelected));
-      });
-    };
-
-    const buildOptions = () => {
-      list.replaceChildren();
-      Array.from(select.options).forEach((option) => {
-        const item = document.createElement("li");
-        item.className = "custom-select-option";
-        item.setAttribute("role", "option");
-        item.dataset.value = option.value;
-        item.textContent = option.textContent;
-        item.addEventListener("click", () => {
-          select.value = option.value;
-          select.dispatchEvent(new Event("change", { bubbles: true }));
-          syncTrigger();
-          wrap.classList.remove("is-open");
-          trigger.setAttribute("aria-expanded", "false");
-          list.hidden = true;
-        });
-        list.append(item);
-      });
-      syncTrigger();
-    };
-
-    buildOptions();
-
-    trigger.addEventListener("click", (event) => {
-      event.stopPropagation();
-      const willOpen = !wrap.classList.contains("is-open");
-      closeAllCustomSelects(willOpen ? wrap : null);
-      wrap.classList.toggle("is-open", willOpen);
-      trigger.setAttribute("aria-expanded", String(willOpen));
-      list.hidden = !willOpen;
-    });
-
-    select.addEventListener("change", syncTrigger);
-  });
-
-  if (customSelectGlobalListenersBound) return;
-  customSelectGlobalListenersBound = true;
-
-  document.addEventListener("click", (event) => {
-    if (event.target.closest(".custom-select")) return;
-    closeAllCustomSelects();
-  });
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") closeAllCustomSelects();
-  });
-}
-
-function initCursorFx() {
-  const root = getElement("[data-cursor-fx]");
-  if (!root) return;
-
-  const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
-  if (prefersReduced || coarsePointer) return;
-
-  root.hidden = false;
-  document.body.classList.add("has-cursor-fx");
-
-  const glow = root.querySelector(".cursor-fx__glow");
-  const ring = root.querySelector(".cursor-fx__ring");
-  const dot = root.querySelector(".cursor-fx__dot");
-  if (!glow || !ring || !dot) return;
-
-  let mouseX = window.innerWidth / 2;
-  let mouseY = window.innerHeight / 2;
-  let glowX = mouseX;
-  let glowY = mouseY;
-  let ringX = mouseX;
-  let ringY = mouseY;
-  let dotX = mouseX;
-  let dotY = mouseY;
-  let rafId = 0;
-
-  const setPos = (el, x, y) => {
-    el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
-  };
-
-  const tick = () => {
-    glowX += (mouseX - glowX) * 0.06;
-    glowY += (mouseY - glowY) * 0.06;
-    ringX += (mouseX - ringX) * 0.14;
-    ringY += (mouseY - ringY) * 0.14;
-    dotX += (mouseX - dotX) * 0.35;
-    dotY += (mouseY - dotY) * 0.35;
-
-    setPos(glow, glowX, glowY);
-    setPos(ring, ringX, ringY);
-    setPos(dot, dotX, dotY);
-    rafId = requestAnimationFrame(tick);
-  };
-
-  document.addEventListener(
-    "mousemove",
-    (event) => {
-      mouseX = event.clientX;
-      mouseY = event.clientY;
-    },
-    { passive: true },
-  );
-
-  document.addEventListener(
-    "mouseover",
-    (event) => {
-      const target = event.target;
-      if (!(target instanceof Element)) return;
-      const interactive = target.closest("a, button, .custom-select-trigger, input, textarea, select, label");
-      root.classList.toggle("is-hover", Boolean(interactive));
-    },
-    { passive: true },
-  );
-
-  rafId = requestAnimationFrame(tick);
-
-  document.addEventListener("visibilitychange", () => {
-    if (document.hidden) cancelAnimationFrame(rafId);
-    else rafId = requestAnimationFrame(tick);
-  });
-}
-
-function initSmoothScroll() {
-  getElements("[data-scroll]").forEach((link) => {
-    link.addEventListener("click", (event) => {
-      const href = link.getAttribute("href");
-      if (!href?.startsWith("#")) return;
-      const target = getElement(href);
-      if (!target) return;
-      event.preventDefault();
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  });
-}
-
-function initHeaderScroll() {
-  const header = getElement("[data-header]");
-  if (!header) return;
-
-  const onScroll = () => header.classList.toggle("is-scrolled", window.scrollY > 12);
-  onScroll();
-  window.addEventListener("scroll", onScroll, { passive: true });
-}
-
-function initScrollReveal() {
-  const revealEls = getElements(".reveal");
-  if (!revealEls.length) return;
-
-  if (!("IntersectionObserver" in window)) {
-    revealEls.forEach((el) => el.classList.add("is-visible"));
-    return;
-  }
-
-  const observer = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (!entry.isIntersecting) return;
-        entry.target.classList.add("is-visible");
-        observer.unobserve(entry.target);
-      });
-    },
-    { threshold: 0.1, rootMargin: "0px 0px -48px 0px" },
-  );
-
-  revealEls.forEach((el) => observer.observe(el));
-}
-
-function getFormPayload(form) {
-  const data = new FormData(form);
-  return {
-    name: String(data.get("name") || "").trim(),
-    email: String(data.get("email") || "").trim(),
-    phone: String(data.get("phone") || "").trim(),
-    location: String(data.get("location") || "").trim(),
-    quantity: Number(data.get("quantity") || 1),
-    configuration: String(data.get("configuration") || "").trim(),
-    message: String(data.get("message") || "").trim(),
-    consent: data.get("consent") === "on",
-    website: String(data.get("website") || "").trim(),
-  };
-}
-
-function showSuccessModal() {
-  const modal = getElement("#successModal");
-  if (!modal) return;
-
-  modal.hidden = false;
-  document.body.classList.add("modal-open");
-  modal.querySelector(".success-modal-close")?.focus();
-}
-
-function hideSuccessModal() {
-  const modal = getElement("#successModal");
-  if (!modal) return;
-
-  modal.hidden = true;
-  document.body.classList.remove("modal-open");
-}
-
-function initSuccessModal() {
-  getElements("[data-modal-close]").forEach((control) => {
-    control.addEventListener("click", hideSuccessModal);
-  });
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") hideSuccessModal();
-  });
-}
-
-function initInquiryForm() {
-  const form = getElement("#inquiryForm");
-  const message = getElement("#formMessage");
-  if (!form || !message) return;
-
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    message.className = "form-message";
-
-    if (!form.reportValidity()) return;
-
-    const submit = form.querySelector('button[type="submit"]');
-    submit.disabled = true;
-    message.textContent = "Wysyłanie zapytania...";
-
-    try {
-      await fetch("/api/inquiry", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(getFormPayload(form)),
-      });
-    } catch (error) {
-      console.warn("Nie udało się potwierdzić wysłania zapytania w tym podglądzie.", error);
-    } finally {
-      message.textContent = "Formularz został wysłany.";
-      message.classList.add("is-success");
-      showSuccessModal();
-      form.reset();
-      quantity = 1;
-      updatePrice();
-      submit.disabled = false;
-    }
-  });
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  populateConfigurator();
-  initCustomSelects();
-  initMenu();
-  initGallery();
-  initQuantity();
-  initAccordion();
-  initSmoothScroll();
-  initHeaderScroll();
-  initScrollReveal();
-  initCursorFx();
-  initSuccessModal();
-  initInquiryForm();
-  updatePrice();
-  getElement("#year").textContent = String(new Date().getFullYear());
-});
-
-const PRODUCTS_DATABASE = {
-  "zbiorniki-retencyjne": {
-    title: "Zbiorniki retencyjne NEO",
-    subtitle: "Samonośny plastikowy zbiornik na wodę deszczową",
-    lead: "Profesjonalne zbiorniki na wodę deszczową i ścieki, dostosowane do indywidualnych potrzeb.",
-    description: `
-      <p class="section-kicker">O PRODUKCIE</p>
-      <h2>Praktyczne zatrzymywanie wody deszczowej</h2>
-      <p>Zbiornik retencyjny NEO służy do gromadzenia wody deszczowej z powierzchni dachowych i jej dalszego wykorzystania tam, gdzie nie jest wymagana woda pitna. To rozwiązanie dla klientów, którzy chcą lepiej gospodarować wodą na działce.</p>
-      <p>Zgromadzoną wodę można wykorzystać przede wszystkim do podlewania ogrodu, zasilania systemu nawadniania lub jako wodę użytkową po odpowiednim podłączeniu technicznym. Duża pojemność pomaga stworzyć zapas w okresach mniejszych opadów.</p>
-      <p>Samonośna konstrukcja i plastikowy materiał są projektowane z myślą o trwałości, łatwej obsłudze i długiej eksploatacji. Konkretne warunki montażu należy zawsze potwierdzić dla danego miejsca posadowienia.</p>
-    `,
-    props: ["Pojemność 1 - 20 m³", "Konstrukcja samonośna", "100% szczelny materiał", "Dostawa na terenie Polski"],
-    badge: "HIT SEZONU",
-    images: [
-      { src: "assets/images/tank-gallery-1.png", alt: "Widok 1" },
-      { src: "assets/images/tank-gallery-2.png", alt: "Widok 2" },
-      { src: "assets/images/tank-gallery-3.png", alt: "Widok 3" },
-      { src: "assets/images/tank-gallery-4.png", alt: "Widok 4" },
-      { src: "assets/images/tank-gallery-5.png", alt: "Widok 5" }
-    ],
-    options: [
-      { name: "Pojemność zbiornika", values: ["5 000 l", "10 000 l", "15 000 l", "20 000 l"] },
-      { name: "Wysokość komina rewizyjnego", values: ["30 cm", "50 cm", "80 cm", "100 cm"] },
-      { name: "Pokrywa", values: ["Nieobciążeniowa", "Obciążeniowa zielona", "Obciążeniowa czarna"] },
-      { name: "Kosz filtracyjny", values: ["Bez kosza", "Z koszem filtracyjnym"] }
-    ]
-  },
-  "nadre": {
-    baseTitle: "Nádrže",
-    subtitle: "Uniwersalne zbiorniki plastikowe",
-    lead: "Uniwersalne zbiorniki plastikowe o różnym przeznaczeniu przemysłowym i domowym.",
-    props: ["Wysoka odporność", "Indywidualne wykonanie", "Atesty i normy", "Dostawa w Polsce"],
-    description: `
-      <p class="section-kicker">O PRODUKCIE</p>
-      <h2>Uniwersalne zbiorniki plastikowe</h2>
-      <p>Uniwersalne zbiorniki plastikowe o różnym przeznaczeniu przemysłowym i domowym, zapewniające bezpieczne magazynowanie wody oraz ścieków.</p>
-    `,
-    images: [
-      { src: "assets/images/product-8-2.jpg", alt: "Nádrže" },
-      { src: "assets/images/product-8.png", alt: "Nádrže" },
-      { src: "assets/images/product-8-3.jpg", alt: "Nádrže" }
-    ],
-    options: [
-      { name: "Pojemność nádrže", values: ["1 000 l", "3 000 l", "5 000 l", "10 000 l"] },
-      { name: "Przeznaczenie", values: ["Woda deszczowa", "Ścieki", "Chemia / Przemysł"] }
-    ]
-  },
-  "poklopy": {
-    baseTitle: "Poklopy",
-    subtitle: "Pokrywy i włazy z tworzywa sztucznego",
-    lead: "Wytrzymałe pokrywy i włazy rewizywne o różnej klasie obciążenia.",
-    props: ["Odporność na UV", "Antypoślizgowa powierzchnia", "Wkręty zabezpieczające", "Różne kolory"],
-    description: `
-      <p class="section-kicker">O PRODUKCIE</p>
-      <h2>Pokrywy studzienek ogrodowych</h2>
-      <p>Pokrywy studzienek „ogrodowych” są stosowane do montażu na studzienkach kablowych, systemach wodociągowych i kanalizacyjnych na chodnikach, w terenach zielonych. Zapewniają łatwy dostęp do mediów podczas układania sieci. Pokrywy studzienek są praktycznie niewidoczne zarówno na powierzchni trawnika, jak i chodnika. Pokrywy polimerowe rozwiązują problem kradzieży pokryw i pozwalają zaoszczędzić pieniądze.</p>
-    `,
-    images: [
-      { src: "assets/images/product-9.jpg", alt: "Poklopy" },
-      { src: "assets/images/product-9-2.jpg", alt: "Poklopy" },
-      { src: "assets/images/product-9-3.jpg", alt: "Poklopy" }
-    ],
-    options: [
-      { name: "Klasa obciążenia", values: ["Nieobciążeniowa (A15)", "Obciążeniowa do 200 kg", "Samochodowa (B125)"] },
-      { name: "Średnica", values: ["Ø 600 mm", "Ø 650 mm", "Ø 800 mm"] }
-    ]
-  },
-  "vsakovaci-blok-compact": {
-    baseTitle: "Vsakovaci blok Compact",
-    subtitle: "Kompaktowe bloki do rozsączania wód",
-    lead: "Modułowe bloki do podziemnej retencji i powolnego rozsączania wody deszczowej w gruncie.",
-    description: `
-      <p class="section-kicker">O PRODUKCIE</p>
-      <h2>Vsakovacie bloky</h2>
-      <p>Vsakovacie bloky kombinujú požiadavky ekologického prístupu so šancou ušetriť finančné prostriedky.</p>
-      <p>Využitie vsakovacích modulov a vsakovacích šácht umožňuje:</p>
-      <ul>
-        <li>Šetrenie finančných prostriedkov pri výstavbe, pretože sa robí menej výkopov ako pri zaužívanom riešení</li>
-        <li>Trvalo vysoký vsakovací výkon</li>
-        <li>Jednoduchú montáž bez využitia ťažkej techniky</li>
-        <li>Využitie vo všetkých sférach, od rodinných domov až po továrne strechy a veľké spevnené plochy</li>
-        <li>Značná finančná úspora pri odpojení sa od kanalizačného systému</li>
-        <li>Nezahlcovanie kanalizačných systémov a čističiek</li>
-        <li>Znižovanie možnosti záplav</li>
-        <li>Udržiawanie prirodzeného kolobehu vody v prírode</li>
-        <li>Pri využití kontrolného bloku je možná pravidelná kontrola kamerou</li>
-      </ul>
-    `,
-    props: ["Wysoka pojemność (97%)", "Łatwy montaż modułowy", "Duża wytrzymałość", "Geowłóknina w zestawie"],
-    images: [
-      { src: "assets/images/product-10.jpg", alt: "Vsakovaci blok Compact" },
-      { src: "assets/images/product-10-2.jpg", alt: "Vsakovaci blok Compact" }
-    ],
-    options: [
-      { name: "Pojemność bloku", values: ["150 l", "300 l", "600 l"] },
-      { name: "Klasa obciążenia", values: ["Ruch pieszy", "Ruch osobowy"] }
-    ]
-  },
-  "separatory": {
-    title: "Separatory",
-    subtitle: "Urządzenia do separacji substancji ropopochodnych i tłuszczów",
-    lead: "Skuteczne oddzielanie substancji ropopochodnych i tłuszczów w systemach kanalizacyjnych.",
-    description: `
-      <p class="section-kicker">O PRODUKCIE</p>
-      <h2>Separatory substancji ropopochodnych</h2>
-      <p>Skuteczne oddzielanie substancji ropopochodnych i tłuszczów w systemach kanalizacyjnych.</p>
-    `,
-    props: ["Przepływ 1.5 - 20 l/s", "Zintegrowany osadnik", "Zgodność z normą PN-EN 858", "Atest higieniczny"],
-    images: [
-      { src: "assets/images/product-1.png", alt: "Separator 1" },
-      { src: "assets/images/product-1-2.png", alt: "Separator 2" },
-      { src: "assets/images/product-1-3.png", alt: "Separator 3" },
-      { src: "assets/images/product-1-4.png", alt: "Separator 4" }
-    ],
-    options: [
-      { name: "Typ separatora", values: ["Koalescencyjny (ropopochodne)", "Tłuszczowy", "Osadnikowy"] },
-      { name: "Przepływ nominalny", values: ["1.5 l/s", "3 l/s", "6 l/s", "10 l/s", "15 l/s"] },
-      { name: "Średnica przyłącza", values: ["DN 110", "DN 160", "DN 200"] }
-    ]
-  },
-  "klapy-zwrotne": {
-    title: "Klapy zwrotne",
-    subtitle: "Zamknięcia przeciwzalewowe",
-    lead: "Ochrona przed cofaniem się ścieków i wody deszczowej z instalacji zewnętrznych.",
-    description: `
-      <p class="section-kicker">O PRODUKCIE</p>
-      <h2>Klapy zwrotne</h2>
-      <p>Ochrona przed cofaniem się ścieków i wody deszczowej z instalacji zewnętrznych.</p>
-    `,
-    props: ["Montaż na rurze", "Odporność na korozję", "Automatyczne działanie", "Łatwy przegląd"],
-    images: [
-      { src: "assets/images/product-2.png", alt: "Klapa zwrotna" }
-    ],
-    options: [
-      { name: "Średnica rury (DN)", values: ["DN 110", "DN 125", "DN 160", "DN 200", "DN 250"] },
-      { name: "Liczba klap", values: ["Jednoklapowa", "Dwuklapowa"] }
-    ]
-  },
-  "drut-spawalniczy": {
-    title: "Drut spawalniczy",
-    subtitle: "Spoiwo do spawania tworzyw sztucznych",
-    lead: "Wysokiej jakości drut do profesjonalnego łączenia tworzyw sztucznych (PE, PP).",
-    description: `
-      <p class="section-kicker">O PRODUKCIE</p>
-      <h2>Drut spawalniczy</h2>
-      <p>Wysokiej jakości drut do profesjonalnego łączenia tworzyw sztucznych (PE, PP).</p>
-    `,
-    props: ["Czysty polimer PP/PE", "Stabilność termiczna", "Wysoka wytrzymałość spoiny", "Różne profile"],
-    images: [
-      { src: "assets/images/product-3.png", alt: "Drut spawalniczy" },
-      { src: "assets/images/product-3-2.png", alt: "Drut spawalniczy 2" },
-      { src: "assets/images/product-3-3.jpg", alt: "Drut spawalniczy 3" }
-    ],
-    options: [
-      { name: "Materiał tworzywa", values: ["PP-H (Polipropylen)", "PE-HD (Polietylen)", "PVC-U"] },
-      { name: "Kształt profilu", values: ["Okrągły Ø 3 mm", "Okrągły Ø 4 mm", "Trójkątny 5x3 mm"] },
-      { name: "Waga opakowania", values: ["Szpula 2 kg", "Szpula 5 kg", "Wiązka 10 kg"] }
-    ]
-  },
-  "studnie": {
-    title: "Studnie tworzywowe",
-    subtitle: "Studzienki kanalizacyjne, wodomierzowe i drenażowe",
-    lead: "Trwałe studnie wodomierzowe, kanalizacyjne i drenażowe wykonane z tworzyw.",
-    description: `
-      <p class="section-kicker">O PRODUKCIE</p>
-      <h2>Studnia wodomierzowa</h2>
-      <p>Studnie wodomierzowe służą do zabudowy aparatury pomiarowej. Wykonane są na bazie rur strukturalnych SPS o dowolnym kolorze i średnicy w zakresie od 600 mm do 3500mm. Produkowane przez nas studnie posiadają sztywność obwodową od 2 do 16 kN/m2 dobieraną w zależności od głębokości posadowienia oraz warunków gruntowych.</p>
-    `,
-    props: ["100% szczelność", "Kompaktowa waga", "Możliwość docięcia", "Wysoka odporność"],
-    images: [
-      { src: "assets/images/product-4.jpg", alt: "Studnia" },
-      { src: "assets/images/product-4-2.jpg", alt: "Studnia" },
-      { src: "assets/images/product-4-3.jpg", alt: "Studnia" }
-    ],
-    options: [
-      { name: "Przeznaczenie", values: ["Wodomierzowa", "Kanalizacyjna rewizyjna", "Drenażowa / Chłonna"] },
-      { name: "Średnica korpusu", values: ["DN 400", "DN 600", "DN 800", "DN 1000"] },
-      { name: "Wysokość studni", values: ["1.0 m", "1.5 m", "2.0 m", "2.5 m"] }
-    ]
-  },
-  "rury-strukturalne": {
-    title: "Rury strukturalne spiralnie zwijane",
-    subtitle: "Systemy rurociągów dużej średnicy",
-    lead: "Wytrzymałe rury do budowy nowych sieci, zbiorników i renowacji przewodów.",
-    description: `
-      <p class="section-kicker">O PRODUKCIE</p>
-      <h2>Rury strukturalne i kanalizacja zewnętrzna</h2>
-      <p>Wytrzymałe rury do budowy nowych sieci, zbiorników i renowacji przewodów. W ofercie dostępne średnice od Ø 110 do Ø 200 mm oraz długości odcinków 500, 1000, 2000, 3000, 4000 i 6000 mm.</p>
-    `,
-    props: ["Wysoka sztywność SN", "Gładka powierzchnia wewn.", "Odporność ścierna", "Łączenie przez spawanie"],
-    badge: "HIT CENOWY",
-    images: [
-      { src: "assets/images/product-5.jpg", alt: "Rura strukturalna" },
-    ],
-    options: [
-      { name: "Średnica wewnętrzna (ID)", values: ["300 mm", "500 mm", "800 mm", "1000 mm", "1200 mm"] },
-      { name: "Klasa sztywności", values: ["SN 2 kN/m²", "SN 4 kN/m²", "SN 8 kN/m²"] }
-    ]
-  },
-  "ksztaltki": {
-    title: "Kształtki i połączenia",
-    subtitle: "Elementy łączeniowe tworzywowe",
-    lead: "Kolana, trójniki, redukcje i inne elementy dopasowane do systemów rurociągów.",
-    description: `
-      <p class="section-kicker">O PRODUKCIE</p>
-      <h2>Kształtki i połączenia</h2>
-      <p>Kolana, trójniki, redukcje i inne elementy dopasowane do systemów rurociągów.</p>
-    `,
-    props: ["Wykonanie z PE/PP", "Zgrzewanie / Spawanie", "Gwarancja szczelności", "Dowolne kąty"],
-    images: [
-      { src: "assets/images/product-6.jpg", alt: "Kształtka" },
-      { src: "assets/images/product-6-2.jpg", alt: "Kształtka" },
-      { src: "assets/images/product-6-3.jpg", alt: "Kształtka" }
-    ],
-    options: [
-      { name: "Rodzaj elementu", values: ["Kolano 45°", "Kolano 90°", "Trójnik 90°", "Redukcja"] },
-      { name: "Średnica nominalna", values: ["DN 110", "DN 160", "DN 200", "DN 250", "DN 315"] }
-    ]
-  },
-  "plyty-pe-pp": {
-    title: "Płyty z PE i PP",
-    subtitle: "Płyty konstrukcyjne i tworzywowe",
-    lead: "Płyty z polietylenu i polipropylenu o wszechstronnym zastosowaniu przemysłowym.",
-    description: `
-      <p class="section-kicker">O PRODUKCIE</p>
-      <h2>Płyty z PE i PP</h2>
-      <p>Płyty z polietylenu i polipropylenu o wszechstronnym zastosowaniu przemysłowym.</p>
-    `,
-    props: ["Gładka lub radełkowana", "Odporność chemiczna", "Ochrona UV", "Łatwa obróbka"],
-    images: [
-      { src: "assets/images/product-7.jpg", alt: "Płyta PE/PP" },
-      { src: "assets/images/product-7-2.jpg", alt: "Płyta PE/PP" },
-      { src: "assets/images/product-7-3.jpg", alt: "Płyta PE/PP" }
-    ],
-    options: [
-      { name: "Gatunek tworzywa", values: ["PE 100", "PP-H", "PP-C"] },
-      { name: "Grubość płyty", values: ["5 mm", "10 mm", "15 mm", "20 mm"] },
-      { name: "Format arkusza", values: ["2000 x 1000 mm", "3000 x 1500 mm"] }
-    ]
-  }
-};
-
-let currentProductImages = [];
-let currentGalleryIndex = 0;
-function parseLitersFromCapacityLabel(label) {
-  const digits = String(label || "").replace(/\D/g, "");
-  return digits ? Number(digits) : null;
-}
-
-function syncProductTitleFromConfigurator(productKey, productData) {
-  const titleElem = document.getElementById("productTitle");
-  const form = document.querySelector("#produkt .configurator");
-  if (!titleElem || !productData) return;
-
-  const baseTitle = productData.title || productData.baseTitle || "Produkt";
-
-  if (productKey === "zbiorniki-retencyjne") {
-    const capacitySelect = form?.querySelector('[data-product-option="Pojemność zbiornika"]');
-    const capacityLabel = capacitySelect?.selectedOptions[0]?.textContent || "";
-    const liters = parseLitersFromCapacityLabel(capacityLabel);
-    titleElem.textContent = liters ? `Zbiorniki retencyjne NEO ${liters} L` : baseTitle;
-    return;
-  }
-
-  titleElem.textContent = baseTitle;
-}
-
-function bindConfiguratorTitleSync(productKey, productData, form) {
-  if (!form) return;
-  form.querySelectorAll("select").forEach((select) => {
-    select.addEventListener("change", () => {
-      syncProductTitleFromConfigurator(productKey, productData);
-    });
-  });
-}
-
-function setupProductGallery(images) {
-  currentProductImages = images || [];
-  currentGalleryIndex = 0;
-
-  const slides = document.querySelectorAll(".gallery-slide");
-  const thumbsContainer = document.querySelector(".gallery-thumbs");
-
-  if (!slides.length || !currentProductImages.length) return;
-
-  slides[0].src = currentProductImages[0].src;
-  slides[0].alt = currentProductImages[0].alt || "";
-  slides[0].classList.add("is-visible");
-
-  if (slides[1]) {
-    slides[1].src = currentProductImages[1] ? currentProductImages[1].src : currentProductImages[0].src;
-    slides[1].alt = currentProductImages[1] ? currentProductImages[1].alt : "";
-    slides[1].classList.remove("is-visible");
-  }
-
-  if (thumbsContainer) {
-    thumbsContainer.innerHTML = "";
-    currentProductImages.forEach((imgObj, idx) => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = `thumb ${idx === 0 ? "is-active" : ""}`;
-      btn.dataset.galleryIndex = String(idx);
-      btn.setAttribute("aria-label", `Pokaż zdjęcie ${idx + 1}`);
-
-      const img = document.createElement("img");
-      img.src = imgObj.src;
-      img.alt = "";
-      img.width = 118;
-      img.height = 86;
-
-      btn.appendChild(img);
-      thumbsContainer.appendChild(btn);
-
-      btn.addEventListener("click", () => showGallerySlide(idx));
-    });
-  }
-}
-
-function showGallerySlide(index) {
-  if (!currentProductImages.length) return;
-  currentGalleryIndex = (index + currentProductImages.length) % currentProductImages.length;
-
-  const slides = document.querySelectorAll(".gallery-slide");
-  const thumbs = document.querySelectorAll(".gallery-thumbs .thumb");
-
-  if (slides.length >= 2) {
-    const visibleSlide = document.querySelector(".gallery-slide.is-visible") || slides[0];
-    const nextSlide = visibleSlide === slides[0] ? slides[1] : slides[0];
-
-    nextSlide.src = currentProductImages[currentGalleryIndex].src;
-    nextSlide.alt = currentProductImages[currentGalleryIndex].alt || "";
-
-    nextSlide.classList.add("is-visible");
-    visibleSlide.classList.remove("is-visible");
-  }
-
-  thumbs.forEach((t, i) => {
-    t.classList.toggle("is-active", i === currentGalleryIndex);
-  });
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  const catalogCards = document.querySelectorAll("[data-product-select]");
-  const productSection = document.getElementById("produkt");
-  const configuratorForm = productSection ? productSection.querySelector(".configurator") : null;
-  const tankSpecsSection = document.getElementById("tankSpecificSection");
-
-  document.querySelector("[data-gallery-prev]")?.addEventListener("click", () => {
-    showGallerySlide(currentGalleryIndex - 1);
-  });
-  document.querySelector("[data-gallery-next]")?.addEventListener("click", () => {
-    showGallerySlide(currentGalleryIndex + 1);
-  });
-
-  catalogCards.forEach((card) => {
-    card.addEventListener("click", () => {
-      const key = card.dataset.productSelect;
-      const data = PRODUCTS_DATABASE[key];
-
-      if (!data || !productSection) return;
-
-      catalogCards.forEach(c => c.classList.remove("is-active"));
-      card.classList.add("is-active");
-
-      const titleElem = document.getElementById("productTitle");
-      const subtitleElem = productSection.querySelector(".subtitle");
-      const leadElem = productSection.querySelector(".lead");
-      const descElem = document.getElementById("productDescription");
-
-      if (subtitleElem) subtitleElem.textContent = data.subtitle;
-      if (leadElem) leadElem.textContent = data.lead;
-      if (descElem) descElem.innerHTML = data.description || "";
-
-      const propsGrid = productSection.querySelector(".property-grid");
-      if (propsGrid && data.props) {
-        propsGrid.innerHTML = data.props.map(p => `<span>${p}</span>`).join("");
-      }
-
-      if (tankSpecsSection) {
-        if (key === "zbiorniki-retencyjne") {
-          tankSpecsSection.removeAttribute("hidden");
-        } else {
-          tankSpecsSection.setAttribute("hidden", "true");
-        }
-      }
-
-      if (configuratorForm) {
-        configuratorForm.innerHTML = "";
-        
-        data.options.forEach((opt) => {
-          const label = document.createElement("label");
-          label.textContent = opt.name;
-          
-          const select = document.createElement("select");
-          select.dataset.productOption = opt.name;
-          opt.values.forEach((val) => {
-            const option = document.createElement("option");
-            option.value = val;
-            option.textContent = val;
-            select.appendChild(option);
-          });
-          
-          label.appendChild(select);
-          configuratorForm.appendChild(label);
-        });
-
-        syncProductTitleFromConfigurator(key, data);
-        initCustomSelects();
-        bindConfiguratorTitleSync(key, data, configuratorForm);
-
-        const qtyDiv = document.createElement("div");
-        qtyDiv.className = "quantity";
-        qtyDiv.innerHTML = `
-          <span>Liczba sztuk</span>
-          <div class="quantity-controls">
-            <button type="button" data-qty-minus>-</button>
-            <output id="quantityOutput">1</output>
-            <button type="button" data-qty-plus>+</button>
+    </script>
+  </head>
+  <body>
+    <div class="page-bg" aria-hidden="true">
+      <div class="page-bg__orb page-bg__orb--1"></div>
+      <div class="page-bg__orb page-bg__orb--2"></div>
+      <div class="page-bg__orb page-bg__orb--3"></div>
+      <div class="page-bg__grid"></div>
+    </div>
+
+    <a class="skip-link" href="#main">Przejdź do treści</a>
+
+    <header class="site-header" data-header>
+      <div class="container header-inner">
+        <a class="brand" href="/" aria-label="NeoPlasty strona główna">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <span>NeoPlasty</span>
+        </a>
+
+        <button class="menu-toggle" type="button" aria-label="Otwórz menu" aria-expanded="false" aria-controls="site-nav" data-menu-toggle>
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+
+        <nav class="site-nav" id="site-nav" aria-label="Główna nawigacja" data-nav>
+          <a href="#produkty">Produkty</a>
+          <a href="#akcje" class="nav-highlight">🔥 Akcje</a>
+          <a href="#vyhody">Zalety</a>
+          <a href="#doprava">Dostawa</a>
+          <a href="#faq">FAQ</a>
+          <a href="#kontakt">Kontakt</a>
+        </nav>
+
+        <div class="header-contact">
+          <a href="tel:+48573378829">+48 573 378 829</a>
+          <a class="button button-small" href="#kontakt" data-scroll>Zapytanie</a>
+        </div>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="section section-muted" id="produkty">
+        <div class="container">
+          <div class="section-header-flex">
+            <div>
+              <p class="section-kicker">Katalog</p>
+              <h2>Nasze produkty</h2>
+            </div>
+            <p class="section-intro-right">Wybierz interesujący Cię produkt, aby otworzyć go i skonfigurować jego parametry.</p>
           </div>
-        `;
-        configuratorForm.appendChild(qtyDiv);
 
-        const badgeElem = productSection.querySelector(".badge-promo-flag");
-        if (badgeElem) {
-          if (data.badge) {
-            badgeElem.textContent = data.badge;
-            badgeElem.style.display = "inline-block";
-          } else {
-            badgeElem.style.display = "none";
-          }
-        }
+          <div class="products-grid-8">
+            <article class="catalog-card reveal reveal-delay-1" data-product-select="zbiorniki-retencyjne">
+              <h3>Zbiorniki retencyjne NEO</h3>
+              <p>Profesjonalne zbiorniki na wodę deszczową i ścieki, dostosowane do indywidualnych potrzeb.</p>
+              <span class="catalog-link">Wybierz parametry →</span>
+            </article>
 
-        qtyDiv.querySelector("[data-qty-minus]")?.addEventListener("click", () => {
-          const out = qtyDiv.querySelector("#quantityOutput");
-          if (out) out.textContent = String(Math.max(1, Number(out.textContent) - 1));
-        });
-        qtyDiv.querySelector("[data-qty-plus]")?.addEventListener("click", () => {
-          const out = qtyDiv.querySelector("#quantityOutput");
-          if (out) out.textContent = String(Number(out.textContent) + 1);
-        });
-      }
+            <article class="catalog-card reveal reveal-delay-2" data-product-select="nadre">
+              <h3>Nádrže</h3>
+              <p>Uniwersalne zbiorniki plastikowe o różnym przeznaczeniu przemysłowym i domowym.</p>
+              <span class="catalog-link">Wybierz parametry →</span>
+            </article>
 
-      setupProductGallery(data.images);
+            <article class="catalog-card reveal reveal-delay-3" data-product-select="poklopy">
+              <h3>Poklopy</h3>
+              <p>Wytrzymałe pokrywy i włazy z tworzywa sztucznego o różnej klasie obciążenia.</p>
+              <span class="catalog-link">Wybierz parametry →</span>
+            </article>
 
-      productSection.removeAttribute("hidden");
+            <article class="catalog-card reveal reveal-delay-4" data-product-select="vsakovaci-blok-compact">
+              <h3>Vsakovaci blok Compact</h3>
+              <p>Kompaktowe bloki do rozsączania i retencji wód opadowych w gruncie.</p>
+              <span class="catalog-link">Wybierz parametry →</span>
+            </article>
 
-      productSection.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  });
+            <article class="catalog-card reveal reveal-delay-1" data-product-select="separatory">
+              <h3>Separatory</h3>
+              <p>Skuteczne oddzielanie substancji ropopochodnych i tłuszczów w systemach kanalizacyjnych.</p>
+              <span class="catalog-link">Wybierz parametry →</span>
+            </article>
 
-  const yearElem = document.getElementById("year");
-  if (yearElem) {
-    yearElem.textContent = String(new Date().getFullYear());
-  }
-});
+            <article class="catalog-card reveal reveal-delay-2" data-product-select="klapy-zwrotne">
+              <h3>Klapy zwrotne</h3>
+              <p>Ochrona przed cofaniem się ścieków i wody deszczowej z instalacji zewnętrznych.</p>
+              <span class="catalog-link">Wybierz parametry →</span>
+            </article>
+
+                   <article class="catalog-card reveal reveal-delay-3" data-product-select="studnie">
+              <h3>Studnia wodomierzowa</h3>
+              <p>Studnie na bazie rur SPS, Ø 600–3500 mm, sztywność obwodowa 2–16 kN/m².</p>
+              <span class="catalog-link">Wybierz parametry →</span>
+            </article>
+
+            <article class="catalog-card reveal reveal-delay-4" data-product-select="rury-pvc-kanalizacja">
+              <h3>Rury PVC — kanalizacja zewnętrzna</h3>
+              <p>Rury PVC Ø 110 i Ø 160 mm w długościach od 500 do 6000 mm.</p>
+n class="catalog-link">Wybierz parametry →</span>
+            </article>
+
+            <article class="catalog-card reveal reveal-delay-1" data-product-select="rury-strukturalne">
+              <h3>Rury strukturalne</h3>
+              <p>Wytrzymałe rury spiralnie zwijane do budowy nowych sieci i renowacji przewodów.</p>
+              <span class="catalog-link">Wybierz parametry →</span>
+            </article>
+
+            <article class="catalog-card reveal reveal-delay-2" data-product-select="ksztaltki">
+              <h3>Kształtki</h3>
+              <p>Kolana, trójniki, redukcje i inne elementy dopasowane do systemów rurociągów.</p>
+              <span class="catalog-link">Wybierz parametry →</span>
+            </article>
+
+            <article class="catalog-card reveal reveal-delay-3" data-product-select="plyty-pe-pp">
+              <h3>Płyty z PE i PP</h3>
+              <p>Płyty z polietylenu i polipropylenu o wszechstronnym zastosowaniu przemysłowym.</p>
+              <span class="catalog-link">Wybierz parametry →</span>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="hero product-details-section" id="produkt" hidden>
+        <div class="container hero-layout">
+          <div class="product-gallery reveal reveal-left" aria-label="Galeria produktu">
+            <div class="gallery-stage">
+              <span class="badge-promo-flag" id="productBadge" style="display: none;">HIT SEZONU</span>
+              <button class="gallery-arrow gallery-arrow-prev" type="button" aria-label="Poprzednie zdjęcie" data-gallery-prev></button>
+              <div class="gallery-slides">
+                <img class="gallery-slide is-visible" data-gallery-layer="0" src="assets/images/tank-gallery-1.png" alt="Zdjęcie produktu" width="780" height="560" fetchpriority="high">
+                <img class="gallery-slide" data-gallery-layer="1" src="assets/images/tank-gallery-2.png" alt="" width="780" height="560" aria-hidden="true">
+              </div>
+              <button class="gallery-arrow gallery-arrow-next" type="button" aria-label="Następne zdjęcie" data-gallery-next></button>
+            </div>
+            <div class="gallery-thumbs" role="list" aria-label="Miniatury produktu">
+              <button class="thumb is-active" type="button" data-gallery-index="0" aria-label="Pokaż zdjęcie 1">
+                <img src="assets/images/tank-gallery-1.png" alt="" width="118" height="86">
+              </button>
+            </div>
+          </div>
+
+          <article class="product-summary reveal reveal-right">
+            <span class="badge badge-glow">DOSTĘPNY OD RĘKI</span>
+            <h1 id="productTitle">Zbiornik retencyjny NEO 20 000 l</h1>
+            <p class="subtitle">Samonośny plastikowy zbiornik na wodę deszczową</p>
+            <p class="lead">Pojemny zbiornik retencyjny do gromadzenia i praktycznego wykorzystania wody deszczowej.</p>
+
+            <div class="property-grid" aria-label="Kluczowe cechy">
+              <span>Konstrukcja samonośna</span>
+              <span>100% szczelny materiał</span>
+              <span>Dostawa na terenie Polski</span>
+              <span>Wysoka trwałość</span>
+            </div>
+
+            <form class="configurator" aria-label="Konfigurator produktu">
+            </form>
+
+            <div class="cta-row">
+              <a class="button" href="#kontakt" data-scroll>Wyślij zapytanie</a>
+              <a class="button button-secondary" href="tel:+48573378829">Zadzwoń</a>
+            </div>
+
+            <aside class="advice-card">
+              <strong>Potrzebujesz pomocy w wyborze?</strong>
+              <span><a href="tel:+48573378829">+48 573 378 829</a> · <a href="mailto:kontakt@neoplasty.pl">kontakt@neoplasty.pl</a></span>
+            </aside>
+          </article>
+        </div>
+
+        <div class="container" style="margin-top: 3rem;">
+          <div id="productDescription" class="product-description-block" style="background: rgba(255, 255, 255, 0.92); border: 1px solid rgba(207, 224, 216, 0.85); border-radius: var(--radius-lg); padding: clamp(1.5rem, 3vw, 2.5rem); box-shadow: var(--shadow-tight);"></div>
+        </div>
+      </section>
+
+      <section class="section section-muted promo-products-section" id="akcje">
+        <div class="container">
+          <div class="section-header-flex">
+            <div>
+              <p class="section-kicker">Specjalna oferta</p>
+              <h2>Akcje na pokrywy, rury i akcesoria z plastiku</h2>
+            </div>
+            <p class="section-intro-right">Skorzystaj z rabatów sezonowych na dodatkowe elementy instalacyjne wykonane z wysokiej jakości tworzywa sztucznego.</p>
+          </div>
+
+          <div class="promo-grid">
+            <article class="promo-card reveal reveal-delay-1">
+              <div class="promo-tag">AKCJA -15%</div>
+              <h3>Pokrywy do zbiorników</h3>
+              <p>Wytrzymałe pokrywy z tworzywa sztucznego (nieobciążeniowe oraz obciążeniowe do 200 kg).</p>
+              <a href="#kontakt" class="promo-link" data-scroll>Zapytaj o cenę w akcji →</a>
+            </article>
+
+            <article class="promo-card reveal reveal-delay-2">
+              <div class="promo-tag promo-tag-hot">HIT CENOWY</div>
+              <h3>Rury do szabli / shaftu</h3>
+              <p>Specjalne rury i przedłużenia do kominów rewizyjnych idealnie dopasowane do terenu.</p>
+              <a href="#kontakt" class="promo-link" data-scroll>Zapytaj o cenę w akcji →</a>
+            </article>
+
+            <article class="promo-card reveal reveal-delay-3">
+              <div class="promo-tag">ZESTAW</div>
+              <h3>Końcówki i kołnierze stożkowe</h3>
+              <p>Plastikowe elementy stożkowe (konusy) oraz redukcje przepływowe.</p>
+              <a href="#kontakt" class="promo-link" data-scroll>Zapytaj o cenę w akcji →</a>
+            </article>
+
+            <article class="promo-card reveal reveal-delay-4">
+              <div class="promo-tag">KOMPLET</div>
+              <h3>Wszystko z plastiku</h3>
+              <p>Wszystkie elementy systemu wykonane w 100% z wytrzymałego polipropylenu (PP).</p>
+              <a href="#kontakt" class="promo-link" data-scroll>Zapytaj o cenę w akcji →</a>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="trust reveal" id="vyhody" aria-label="Zalety">
+        <div class="container trust-grid">
+          <article class="reveal reveal-delay-1">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+            <strong>Dostawa na terenie całej Polski</strong>
+          </article>
+          <article class="reveal reveal-delay-2">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12a7 7 0 0 1 14 0v4a3 3 0 0 1-3 3h-2v-2h2a1 1 0 0 0 1-1v-4a5 5 0 0 0-10 0v5H5z"/><path d="M9 16h4v3H9z"/></svg>
+            <strong>Profesjonalne doradztwo</strong>
+          </article>
+          <article class="reveal reveal-delay-3">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 6v6c0 5-3.4 7.8-8 9-4.6-1.2-8-4-8-9V6z"/><path d="m8 12 3 3 5-6"/></svg>
+            <strong>Wysokiej jakości materiał</strong>
+          </article>
+          <article class="reveal reveal-delay-4">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l4 2"/></svg>
+            <strong>Szybka obsługa zapytania</strong>
+          </article>
+        </div>
+      </section>
+
+      <div id="tankSpecificSection" hidden>
+        <section class="section" id="parametre">
+          <div class="container specs-layout">
+            <div>
+              <p class="section-kicker">Dane techniczne</p>
+              <h2>Parametry techniczne</h2>
+              <p class="section-intro" id="specsIntro">Podstawowe dane techniczne dla samonośnego zbiornika NEO.</p>
+              <div class="table-wrap">
+                <table>
+                  <tbody>
+                    <tr><th scope="row">Pojemność</th><td id="specCapacity">20 000 l</td></tr>
+                    <tr><th scope="row">Materiał</th><td>płyty polipropylenowe (100% plastik)</td></tr>
+                    <tr><th scope="row">Zastosowanie</th><td>woda deszczowa i opadowa</td></tr>
+                    <tr><th scope="row">Typ</th><td>samonośny</td></tr>
+                    <tr><th scope="row">Gwarancja</th><td>2 lata</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <aside class="dimension-panel" aria-label="Skrócone wymiary zbiornika">
+              <div class="mini-drawing">
+                <strong id="miniCapacity">20 m³ / 20 000 l</strong>
+                <span id="miniLength">Długość zewnętrzna D2: 550 cm</span>
+                <span id="miniWidth">Szerokość zewnętrzna S2: 210 cm</span>
+                <span id="miniHeight">Wysokość płaszcza V1: 200 cm</span>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="section drawing-section" aria-labelledby="drawingTitle">
+          <div class="container">
+            <div class="drawing-title" id="drawingTitle">RYSUNEK I WYMIARY</div>
+            <div class="technical-drawing-image" aria-label="Rysunek techniczny zbiornika">
+              <img src="assets/images/drawing-dimensions-pl.png" alt="Rysunek techniczny" loading="lazy">
+            </div>
+            <div class="table-wrap dimensions-table-wrap">
+              <table class="dimensions-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Pojemność<br>(m3)</th>
+                    <th scope="col">Szerokość wewnętrzna<br>S1 (cm)</th>
+                    <th scope="col">Długość wewnętrzna<br>D1 (cm)</th>
+                    <th scope="col">Szerokość zewnętrzna<br>S2 (cm)</th>
+                    <th scope="col">Długość zewnętrzna<br>D2 (cm)</th>
+                    <th scope="col">Wysokość płaszcza<br>V1 (cm)</th>
+                    <th scope="col">Wysokość górnej krawędzi dopływu<br>V2 (cm)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td>1</td><td>90</td><td>120</td><td>110</td><td>130</td><td>100</td><td>97</td></tr>
+                  <tr><td>2</td><td>90</td><td>155</td><td>110</td><td>175</td><td>150</td><td>147</td></tr>
+                  <tr><td>3</td><td>140</td><td>150</td><td>160</td><td>170</td><td>150</td><td>147</td></tr>
+                  <tr><td>4</td><td>140</td><td>190</td><td>160</td><td>210</td><td>150</td><td>147</td></tr>
+                  <tr><td>5</td><td>140</td><td>240</td><td>160</td><td>260</td><td>150</td><td>147</td></tr>
+                  <tr><td>6</td><td>140</td><td>290</td><td>160</td><td>310</td><td>150</td><td>147</td></tr>
+                  <tr><td>8</td><td>190</td><td>280</td><td>210</td><td>300</td><td>150</td><td>147</td></tr>
+                  <tr><td>9</td><td>190</td><td>320</td><td>210</td><td>340</td><td>150</td><td>147</td></tr>
+                  <tr><td>10</td><td>190</td><td>265</td><td>210</td><td>285</td><td>200</td><td>197</td></tr>
+                  <tr><td>12</td><td>190</td><td>320</td><td>210</td><td>340</td><td>200</td><td>197</td></tr>
+                  <tr><td>15</td><td>190</td><td>390</td><td>210</td><td>410</td><td>200</td><td>197</td></tr>
+                  <tr class="is-current"><td>20</td><td>190</td><td>530</td><td>210</td><td>550</td><td>200</td><td>197</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <section class="section delivery reveal" id="doprava">
+        <div class="container delivery-inner">
+          <div>
+            <p class="section-kicker">Dostawa</p>
+            <h2>Dostawa i termin realizacji</h2>
+            <p>Dostawę wyceniamy indywidualnie. Koszt zależy od adresu, dostępności miejsca rozładunku i aktualnych możliwości transportowych.</p>
+          </div>
+          <a class="button" href="#kontakt" data-scroll>Wyceń dostawę</a>
+        </div>
+      </section>
+
+      <section class="section section-muted" id="faq">
+        <div class="container text-column">
+          <p class="section-kicker">FAQ</p>
+          <h2>Najczęstsze pytania</h2>
+          <div class="accordion">
+            <article class="accordion-item">
+              <button type="button" aria-expanded="false"><span>Czy zbiornik jest samonośny?</span><span aria-hidden="true"></span></button>
+              <div class="accordion-panel"><div class="accordion-panel-inner"><p>Tak, produkt jest prezentowany jako zbiornik samonośny. Ostateczne zastosowanie warto potwierdzić na podstawie karty technicznej i miejsca montażu.</p></div></div>
+            </article>
+            <article class="accordion-item">
+              <button type="button" aria-expanded="false"><span>Jak montuje się zbiornik?</span><span aria-hidden="true"></span></button>
+              <div class="accordion-panel"><div class="accordion-panel-inner"><p>Montaż zależy od podłoża, dostępu i sposobu podłączenia rur. Przed realizacją zalecamy konsultację ze specjalistą.</p></div></div>
+            </article>
+            <article class="accordion-item">
+              <button type="button" aria-expanded="false"><span>Czy można zmienić wysokość komina rewizyjnego?</span><span aria-hidden="true"></span></button>
+              <div class="accordion-panel"><div class="accordion-panel-inner"><p>Tak, konfigurator uwzględnia warianty od 30 cm do 130 cm zgodnie z wybraną wysokością komina rewizyjnego.</p></div></div>
+            </article>
+            <article class="accordion-item">
+              <button type="button" aria-expanded="false"><span>Jak przebiega dostawa?</span><span aria-hidden="true"></span></button>
+              <div class="accordion-panel"><div class="accordion-panel-inner"><p>Dostawę wyceniamy indywidualnie na podstawie adresu i możliwości rozładunku.</p></div></div>
+            </article>
+            <article class="accordion-item">
+              <button type="button" aria-expanded="false"><span>Jaka jest gwarancja?</span><span aria-hidden="true"></span></button>
+              <div class="accordion-panel"><div class="accordion-panel-inner"><p>Standardowa gwarancja dla tego produktu wynosi 2 lata.</p></div></div>
+            </article>
+            <article class="accordion-item">
+              <button type="button" aria-expanded="false"><span>Czy można zamówić akcesoria?</span><span aria-hidden="true"></span></button>
+              <div class="accordion-panel"><div class="accordion-panel-inner"><p>Tak, akcesoria można dobrać po konsultacji ze sprzedawcą.</p></div></div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section contact-section reveal" id="kontakt">
+        <div class="container contact-layout">
+          <div>
+            <p class="section-kicker">Kontakt</p>
+            <h2>Zapytanie ofertowe</h2>
+            <p>Wyślij podstawowe informacje, a przygotujemy orientacyjną ofertę wraz z dostawą.</p>
+            <div class="contact-card">
+              <strong>NeoPlasty</strong>
+              <a href="mailto:kontakt@neoplasty.pl">kontakt@neoplasty.pl</a>
+              <a href="tel:+48573378829">+48 573 378 829</a>
+            </div>
+          </div>
+
+          <form class="inquiry-form" id="inquiryForm" novalidate>
+            <label>Imię i nazwisko *<input name="name" autocomplete="name" required minlength="2" maxlength="80"></label>
+            <label>E-mail *<input name="email" type="email" autocomplete="email" required maxlength="254"></label>
+            <label>Telefon<input name="phone" type="tel" autocomplete="tel" maxlength="40"></label>
+            <label>Kod pocztowy / miasto<input name="location" autocomplete="postal-code" maxlength="120"></label>
+            <label>Liczba sztuk<input name="quantity" type="number" min="1" max="99" value="1"></label>
+            <input type="hidden" name="configuration" id="configurationInput" value="">
+            <label>Wiadomość *<textarea name="message" id="inquiryMessage" rows="5" required minlength="10" maxlength="1500">Interesuje mnie wybrany produkt z oferty NeoPlasty. Proszę o przygotowanie oferty cenowej.</textarea></label>
+            <label class="honeypot">Web<input name="website" autocomplete="off" tabindex="-1"></label>
+            <label class="checkbox checkbox-custom">
+              <input name="consent" type="checkbox" required>
+              <span class="checkbox-box" aria-hidden="true"></span>
+              <span class="checkbox-text">Wyrażam zgodę na przetwarzanie danych osobowych.</span>
+            </label>
+            <button class="button" type="submit">Wyślij zapytanie</button>
+            <p class="form-message" id="formMessage" role="status" aria-live="polite"></p>
+          </form>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-wave" aria-hidden="true">
+        <svg viewBox="0 0 1440 48" preserveAspectRatio="none"><path d="M0 32 C360 0 720 64 1080 24 C1260 8 1380 16 1440 28 L1440 48 L0 48 Z" fill="currentColor"/></svg>
+      </div>
+      <div class="container footer-inner">
+        <div class="footer-brand-block">
+          <a class="footer-brand" href="/">
+            <span class="brand-mark" aria-hidden="true"></span>
+            <span>NeoPlasty</span>
+          </a>
+          <p class="footer-tagline">Plastikowe zbiorniki retencyjne NEO, pokrywy, rury i akcesoria — doradztwo, konfiguracja i dostawa.</p>
+        </div>
+        <div class="footer-grid">
+          <div class="footer-col">
+            <h3 class="footer-heading">Kontakt</h3>
+            <a class="footer-link" href="mailto:kontakt@neoplasty.pl">
+              <span class="footer-link-icon" aria-hidden="true">✉</span>
+              kontakt@neoplasty.pl
+            </a>
+            <a class="footer-link" href="tel:+48573378829">
+              <span class="footer-link-icon" aria-hidden="true">☎</span>
+              +48 573 378 829
+            </a>
+          </div>
+          <div class="footer-col">
+            <h3 class="footer-heading">Nawigacja</h3>
+            <nav class="footer-nav" aria-label="Stopka">
+              <a href="#produkty">Produkty</a>
+              <a href="#doprava">Dostawa</a>
+              <a href="#faq">FAQ</a>
+              <a href="#kontakt">Zapytanie ofertowe</a>
+            </nav>
+          </div>
+          <div class="footer-col">
+            <h3 class="footer-heading">Informacje</h3>
+            <nav class="footer-nav" aria-label="Informacje prawne">
+              <a href="#">Ochrona danych osobowych</a>
+              <a href="#">Warunki handlowe</a>
+            </nav>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <small>© <span id="year"></span> NeoPlasty. Wszelkie prawa zastrzeżone.</small>
+          <span class="footer-badge">Woda deszczowa · Retencja · NeoPlasty</span>
+        </div>
+      </div>
+    </footer>
+
+    <script src="assets/js/main.js" defer></script>
+  </body>
+</html>
